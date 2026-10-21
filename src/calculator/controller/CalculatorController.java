@@ -2,6 +2,7 @@ package calculator.controller;
 
 import calculator.ui.CalculatorUI;
 import calculator.operations.BasicOperations;
+import calculator.operations.AdvancedOperations;
 import calculator.history.CalculationHistory;
 import calculator.history.CalculationRecord;
 
@@ -10,91 +11,216 @@ import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.Locale;
+
 public class CalculatorController {
-    private CalculatorUI ui;
-    private BasicOperations basicOps;
-    private CalculationHistory history;
+
+    private final CalculatorUI ui;
+    private final BasicOperations basicOps;
+    private final AdvancedOperations advancedOps;
+    private final CalculationHistory history;
+
+    private Double firstNumber = null;
+    private String pendingOperator = null;
+    private boolean startNewNumber = true;
 
     public CalculatorController(CalculatorUI ui) {
         this.ui = ui;
         this.basicOps = new BasicOperations();
+        this.advancedOps = new AdvancedOperations();
         this.history = new CalculationHistory();
+
         this.ui.addButtonListener(new ButtonClickListener());
     }
 
     private class ButtonClickListener implements ActionListener {
+
         @Override
         public void actionPerformed(ActionEvent e) {
             String command = e.getActionCommand();
-            String currentText = ui.getDisplayText();
 
             try {
-                // 1. Αν πατήθηκε αριθμός ή τελεία
-                if (command.matches("[0-9]") || command.equals(".")) {
-                    // Αν η οθόνη γράφει 0 ή έχει βγάλει σφάλμα, σβήστο και γράψε το νέο νούμερο
-                    if (currentText.equals("0") || currentText.equals("Σφάλμα")) {
-                        ui.setDisplayText(command);
-                    } else {
-                        // Αλλιώς, πρόσθεσέ το δίπλα σε αυτό που υπάρχει ήδη
-                        ui.setDisplayText(currentText + command);
-                    }
+                if (command.matches("[0-9]")) {
+                    enterDigit(command);
+                } else if (command.equals(".")) {
+                    enterDecimalPoint();
+                } else if (command.equals("C")) {
+                    clear();
+                } else if (command.matches("[+\\-*/]")) {
+                    selectOperator(command);
+                } else if (command.equals("=")) {
+                    calculate();
+                } else if (command.equals("√")) {
+                    calculateUnary("√");
+                } else if (command.equals("log")) {
+                    calculateUnary("log");
+                } else if (command.equals("ln")) {
+                    calculateUnary("ln");
+                } else if (command.equals("e^x")) {
+                    calculateUnary("e^x");
+                } else if (command.equals("x^y")) {
+                    selectOperator("^");
+                } else if (command.equals("%")) {
+                    calculateUnary("%");
+                } else if (command.equals("History")) {
+                    showHistory();
                 }
-                // 2. Αν πατήθηκε το C (Καθαρισμός)
-                else if (command.equals("C")) {
-                    ui.setDisplayText("0");
-                }
-                // 3. Αν πατήθηκε πράξη (+, -, *, /)
-                else if (command.matches("[+\\-*/]")) {
-                    // Βάζει την πράξη μόνο αν δεν υπάρχει ήδη κάποια άλλη πράξη στην οθόνη
-                    if (!currentText.contains(" + ") && !currentText.contains(" - ") &&
-                            !currentText.contains(" * ") && !currentText.contains(" / ")) {
-
-                        // Βάζει κενά δεξιά-αριστερά από την πράξη για να φαίνεται ωραία (π.χ. "5 - ")
-                        ui.setDisplayText(currentText + " " + command + " ");
-                    }
-                }
-                // 4. Αν πατήθηκε το ίσον (=)
-                else if (command.equals("=")) {
-                    // Χωρίζει το κείμενο της οθόνης όπου υπάρχουν κενά (πχ το "5.0 - 3.0" γίνεται 3 κομμάτια)
-                    String[] parts = currentText.split(" ");
-
-                    if (parts.length == 3) {
-                        double num1 = Double.parseDouble(parts[0]);
-                        String operator = parts[1];
-                        double num2 = Double.parseDouble(parts[2]);
-                        double result = 0;
-
-                        if (operator.equals("+")) result = basicOps.add(num1, num2);
-                        else if (operator.equals("-")) result = basicOps.subtract(num1, num2);
-                        else if (operator.equals("*")) result = basicOps.multiply(num1, num2);
-                        else if (operator.equals("/")) result = basicOps.divide(num1, num2);
-
-                        // Εμφανίζει ΜΟΝΟ το αποτέλεσμα μετά το =
-                        ui.setDisplayText(String.valueOf(result));
-
-                        // Αποθήκευση στο ιστορικό της ομάδας
-                        history.add(currentText, result);
-                    }
-                }
-                // 5. Αν πατήθηκε το History
-                else if (command.equals("History")) {
-                    List<String> historyStrings = new ArrayList<>();
-
-                    // Παίρνει όλα τα records από την κλάση CalculationHistory της ομάδας σου
-                    for (CalculationRecord record : history.getAll()) {
-                        historyStrings.add(record.toString());
-                    }
-
-                    // Καλεί το παραθυράκι popup που φτιάξαμε νωρίτερα στο CalculatorUI
-                    ui.showHistoryDialog(historyStrings);
-                }
-
             } catch (Exception ex) {
                 ui.setDisplayText("Σφάλμα");
-                // Αυτό σε βοηθάει να δεις στην κονσόλα σου αν κάτι πήγε στραβά
-                System.out.println("Βρέθηκε σφάλμα στο κουμπί: " + command);
+                firstNumber = null;
+                pendingOperator = null;
+                startNewNumber = true;
+
+                System.out.println("Σφάλμα στο κουμπί: " + command);
                 ex.printStackTrace();
             }
         }
+    }
+
+    private void enterDigit(String digit) {
+        String current = ui.getDisplayText();
+
+        if (startNewNumber || current.equals("0")
+                || current.equals("Σφάλμα")) {
+            ui.setDisplayText(digit);
+            startNewNumber = false;
+        } else {
+            ui.setDisplayText(current + digit);
+        }
+    }
+
+    private void enterDecimalPoint() {
+        String current = ui.getDisplayText();
+
+        if (startNewNumber || current.equals("Σφάλμα")) {
+            ui.setDisplayText("0.");
+            startNewNumber = false;
+        } else if (!current.contains(".")) {
+            ui.setDisplayText(current + ".");
+        }
+    }
+
+    private void clear() {
+        ui.setDisplayText("0");
+        firstNumber = null;
+        pendingOperator = null;
+        startNewNumber = true;
+    }
+
+    private void selectOperator(String operator) {
+        String current = ui.getDisplayText();
+
+        if (operator.equals("-") && startNewNumber) {
+            return;
+        }
+
+        if (operator.equals("-") && firstNumber == null
+                && !current.equals("0") && !current.equals("Σφάλμα")) {
+            double number = Double.parseDouble(current);
+            ui.setDisplayText(format(-number));
+            startNewNumber = true;
+            return;
+        }
+
+        firstNumber = Double.parseDouble(current);
+        pendingOperator = operator;
+        startNewNumber = true;
+    }
+
+    private void calculate() {
+        if (firstNumber == null || pendingOperator == null) {
+            return;
+        }
+
+        double secondNumber =
+                Double.parseDouble(ui.getDisplayText());
+
+        double result;
+
+        switch (pendingOperator) {
+            case "+":
+                result = basicOps.add(firstNumber, secondNumber);
+                break;
+            case "-":
+                result = basicOps.subtract(firstNumber, secondNumber);
+                break;
+            case "*":
+                result = basicOps.multiply(firstNumber, secondNumber);
+                break;
+            case "/":
+                result = basicOps.divide(firstNumber, secondNumber);
+                break;
+            case "^":
+                result = advancedOps.power(firstNumber, secondNumber);
+                break;
+            default:
+                throw new IllegalArgumentException(
+                        "Άγνωστη πράξη: " + pendingOperator);
+        }
+
+        String expression = format(firstNumber) + " "
+                + pendingOperator + " " + format(secondNumber);
+
+        ui.setDisplayText(format(result));
+        history.add(expression, result);
+
+        firstNumber = null;
+        pendingOperator = null;
+        startNewNumber = true;
+    }
+
+    private void calculateUnary(String operation) {
+        double number = Double.parseDouble(ui.getDisplayText());
+        double result;
+
+        switch (operation) {
+            case "√":
+                result = advancedOps.sqrt(number);
+                break;
+            case "log":
+                result = advancedOps.log(number);
+                break;
+            case "ln":
+                result = advancedOps.ln(number);
+                break;
+            case "e^x":
+                result = advancedOps.expo(number);
+                break;
+            case "%":
+                result = advancedOps.percent(number);
+                break;
+            default:
+                throw new IllegalArgumentException(
+                        "Άγνωστη πράξη: " + operation);
+        }
+
+        history.add(operation + "(" + format(number) + ")", result);
+        ui.setDisplayText(format(result));
+        startNewNumber = true;
+    }
+
+    private void showHistory() {
+        List<String> historyStrings = new ArrayList<>();
+
+        for (CalculationRecord record : history.getAll()) {
+            historyStrings.add(record.toString());
+        }
+
+        ui.showHistoryDialog(historyStrings);
+    }
+
+    private String format(double number) {
+        if (!Double.isFinite(number)) {
+            return Double.toString(number);
+        }
+
+        DecimalFormat df = new DecimalFormat(
+                "0.############",
+                DecimalFormatSymbols.getInstance(Locale.US)
+        );
+
+        return df.format(number);
     }
 }
