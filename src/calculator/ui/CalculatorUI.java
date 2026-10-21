@@ -86,6 +86,14 @@ public class CalculatorUI {
     public String getDisplayText() {
         return display.getText();
     }
+    // Επιτρέπει στον Controller να βάλει "αυτιά" σε όλα τα κουμπιά του πάνελ
+    public void addButtonListener(java.awt.event.ActionListener listener) {
+        for (java.awt.Component c : buttonPanel.getComponents()) {
+            if (c instanceof JButton) {
+                ((JButton) c).addActionListener(listener);
+            }
+        }
+    }
 
     // ΝΕΑ ΜΕΘΟΔΟΣ: Εμφανίζει το pop-up με το ιστορικό
     public void showHistoryDialog(List<String> historyList) {
