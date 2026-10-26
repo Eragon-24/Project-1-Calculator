@@ -112,19 +112,48 @@ public class CalculatorController {
     private void selectOperator(String operator) {
         String current = ui.getDisplayText();
 
-        if (operator.equals("-") && startNewNumber) {
+        if (current.equals("Σφάλμα")) {
             return;
         }
 
-        if (operator.equals("-") && firstNumber == null
-                && !current.equals("0") && !current.equals("Σφάλμα")) {
-            double number = Double.parseDouble(current);
-            ui.setDisplayText(format(-number));
-            startNewNumber = true;
+        // Αν ο χρήστης πατήσει άλλο σύμβολο πράξης διαδοχικά (π.χ. πάτησε κατά λάθος + και μετά *),
+        // απλά αλλάζουμε τον τελεστή χωρίς να ξαναϋπολογίσουμε
+        if (startNewNumber && pendingOperator != null) {
+            pendingOperator = operator;
             return;
         }
 
-        firstNumber = Double.parseDouble(current);
+        // Αν υπάρχει ήδη προηγούμενο νούμερο και πράξη, εκτέλεσε πρώτα τον ενδιάμεσο υπολογισμό!
+        if (firstNumber != null && pendingOperator != null) {
+            double secondNumber = Double.parseDouble(current);
+            double intermediateResult;
+
+            switch (pendingOperator) {
+                case "+":
+                    intermediateResult = basicOps.add(firstNumber, secondNumber);
+                    break;
+                case "-":
+                    intermediateResult = basicOps.subtract(firstNumber, secondNumber);
+                    break;
+                case "*":
+                    intermediateResult = basicOps.multiply(firstNumber, secondNumber);
+                    break;
+                case "/":
+                    intermediateResult = basicOps.divide(firstNumber, secondNumber);
+                    break;
+                case "^":
+                    intermediateResult = advancedOps.power(firstNumber, secondNumber);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Άγνωστη πράξη: " + pendingOperator);
+            }
+
+            firstNumber = intermediateResult;
+            ui.setDisplayText(format(intermediateResult));
+        } else {
+            firstNumber = Double.parseDouble(current);
+        }
+
         pendingOperator = operator;
         startNewNumber = true;
     }
