@@ -24,6 +24,10 @@
 - Τι σημαίνει το αποτέλεσμα:Το Blame δείχνει το τελευταίο commit που άλλαξε τη γραμμή, τι αλλαγες εηιναν και απο ποιον
 
 Άσκηση A5 — Branch και commit
-- Όνομα branch:
-- Commit:
-- Σύνδεσμος PR, αν δημιουργήθηκε:
+- Όνομα branch:training/A5-XrhstosM15
+- Commit:https://github.com/Eragon-24/Project-1-Calculator/commit/d85cde6c37cf4b14acaab3d143601e8019af16ed
+- Σύνδεσμος PR, αν δημιουργήθηκε: δεν υπηρχε pullrequest
+
+Άσκηση A6 — Issue
+- Σύνδεσμος Issue
+- Κριτήρια ολοκλήρωσης:
