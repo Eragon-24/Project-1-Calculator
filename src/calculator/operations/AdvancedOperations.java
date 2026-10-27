@@ -49,4 +49,5 @@ public class AdvancedOperations {
     public double expo(double a) {
         return Math.exp(a);
     }
+    //test comment for training - doewsnt do anything
 }
